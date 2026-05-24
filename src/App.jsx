@@ -159,7 +159,6 @@ function App() {
       }
 
       const actualFrom = visibleIndices[fromIndex];
-      const actualTo = visibleIndices[toIndex];
 
       const next = [...prev];
       const [movedPage] = next.splice(actualFrom, 1);

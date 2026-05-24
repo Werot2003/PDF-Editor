@@ -74,13 +74,13 @@ export default function PDFPageEditor({
   const [ocrProgress, setOcrProgress] = useState(0);
   const [fontUrlInput, setFontUrlInput] = useState(googleFontSettings?.url || '');
 
-  // Clear selections/edit mode on tool switch
-  useEffect(() => {
+  const changeTool = useCallback((newTool) => {
+    setTool(newTool);
     setSelectedId(null);
     setSelectedType(null);
     setEditingId(null);
     setEditingAnnotId(null);
-  }, [tool]);
+  }, []);
 
   // Handle setting inline text content and focus for annotations
   useEffect(() => {
@@ -211,7 +211,8 @@ export default function PDFPageEditor({
 
     const extract = async () => {
       try {
-        const items = await extractTextFromPage(page.pageProxy);
+        const totalRotation = ((page.pageProxy.rotate || 0) + (page.rotation || 0)) % 360;
+        const items = await extractTextFromPage(page.pageProxy, totalRotation);
 
         if (!cancelled && items.length > 0) {
           console.log(`[TextExtractor] Page ${pageNumber}: ${items.length} text items extracted`);
@@ -238,7 +239,7 @@ export default function PDFPageEditor({
     return () => {
       cancelled = true;
     };
-  }, [page, extractedTexts, onExtractedTexts]);
+  }, [page, extractedTexts, onExtractedTexts, pageNumber]);
 
   // BUG-10 fix: Invalidate extracted texts when rotation changes
   // so text re-extraction uses the correct rotated coordinates.
@@ -257,22 +258,23 @@ export default function PDFPageEditor({
     setOcrProgress(0);
 
     try {
-      const viewport = page.pageProxy.getViewport({ scale: 1, rotation: page.rotation || 0 });
+      const unrotatedViewport = page.pageProxy.getViewport({ scale: 1, rotation: 0 });
+      const totalRotation = ((page.pageProxy.rotate || 0) + (page.rotation || 0)) % 360;
+
       const items = await runOCR(
         canvasRef.current,
-        viewport.width,
-        viewport.height,
+        unrotatedViewport.width,
+        unrotatedViewport.height,
         {
           lang: 'tha+eng',
           onProgress: (p) => setOcrProgress(p),
-          layoutWidth: pageSize.width,
-          layoutHeight: pageSize.height,
+          totalRotation,
         }
       );
 
       if (items.length > 0) {
         onExtractedTexts(items);
-        setTool('editText');
+        changeTool('editText');
       } else {
         alert('ไม่พบข้อความในหน้านี้ (No text found)');
       }
@@ -354,7 +356,7 @@ export default function PDFPageEditor({
     onChangeAnnotations((items) => [...items, annotation]);
     setSelectedId(annotation.id);
     setSelectedType('annotation');
-    setTool('select');
+    changeTool('select');
   };
 
   const updateAnnotation = (id, patch) => {
@@ -532,7 +534,7 @@ export default function PDFPageEditor({
               <button
                 key={value}
                 type="button"
-                onClick={() => setTool(value)}
+                onClick={() => changeTool(value)}
                 className={tool === value ? 'btn-primary !py-2 !px-4' : 'btn-secondary !py-2 !px-4'}
               >
                 {label}
@@ -697,11 +699,10 @@ export default function PDFPageEditor({
             ref={pageFrameRef}
             className="relative bg-white shadow-2xl"
             style={{ width: pageSize.width, height: pageSize.height }}
-            onPointerDown={addAnnotation} // เปลี่ยนจาก onClick เป็น onPointerDown 
+            onPointerDown={addAnnotation}
           >
             <canvas ref={canvasRef} className="block w-full h-full" />
 
-            {/* Text Overlay Layer — rendered between canvas and annotations */}
             {showTextLayer && extractedTexts && extractedTexts.length > 0 && (
               <TextOverlay
                 items={extractedTexts}
@@ -804,15 +805,13 @@ export default function PDFPageEditor({
         </div>
       </div>
 
-      {/* Sticky Bottom Toolbar for Text Editing */}
       {(tool === 'editText' || tool === 'moveText') && extractedTexts && extractedTexts.length > 0 && (
         <div className="sticky-text-toolbar">
           <div className="max-w-4xl mx-auto flex items-center gap-3">
-            {/* Mode switch pills */}
             <div className="flex items-center bg-dark-700 rounded-xl p-1 gap-0.5">
               <button
                 type="button"
-                onClick={() => setTool('editText')}
+                onClick={() => changeTool('editText')}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                   tool === 'editText'
                     ? 'bg-gradient-to-r from-accent-500 to-accent-400 text-white shadow-lg shadow-accent-500/25'
@@ -826,7 +825,7 @@ export default function PDFPageEditor({
               </button>
               <button
                 type="button"
-                onClick={() => setTool('moveText')}
+                onClick={() => changeTool('moveText')}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                   tool === 'moveText'
                     ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/25'
@@ -840,10 +839,8 @@ export default function PDFPageEditor({
               </button>
             </div>
 
-            {/* Separator */}
             <div className="w-px h-8 bg-dark-500/50" />
 
-            {/* Helper text */}
             <div className="flex items-center gap-2 text-xs text-dark-300">
               {tool === 'editText' && (
                 <>

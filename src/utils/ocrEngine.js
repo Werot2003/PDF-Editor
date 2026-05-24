@@ -6,6 +6,7 @@
  * so OCR results can be edited and exported identically to native PDF text.
  */
 import { createWorker } from 'tesseract.js';
+import { mapVisualToPhysical } from './pdfUtils';
 
 let cachedWorker = null;
 
@@ -33,17 +34,16 @@ async function getWorker(lang = 'tha+eng', onProgress) {
  * Run OCR on a canvas element and return ExtractedTextItem[] format.
  *
  * @param {HTMLCanvasElement} canvas - The rendered PDF page canvas
- * @param {number} pageWidth - Page width in PDF points (for coordinate mapping)
- * @param {number} pageHeight - Page height in PDF points (for coordinate mapping)
+ * @param {number} unrotatedWidth - Unrotated page width in PDF points
+ * @param {number} unrotatedHeight - Unrotated page height in PDF points
  * @param {object} options
  * @param {string} options.lang - OCR language(s), default 'tha+eng'
  * @param {function} options.onProgress - Progress callback (0–1)
- * @param {number} options.layoutWidth - Layout width in CSS pixels (for HiDPI correction)
- * @param {number} options.layoutHeight - Layout height in CSS pixels (for HiDPI correction)
- * @returns {Promise<Array>} ExtractedTextItem[] with normalized coordinates
+ * @param {number} options.totalRotation - Total rotation of the page
+ * @returns {Promise<Array>} ExtractedTextItem[] with normalized coordinates mapped to unrotated space
  */
-export async function runOCR(canvas, pageWidth, pageHeight, options = {}) {
-  const { lang = 'tha+eng', onProgress, layoutWidth, layoutHeight } = options;
+export async function runOCR(canvas, unrotatedWidth, unrotatedHeight, options = {}) {
+  const { lang = 'tha+eng', onProgress, totalRotation = 0 } = options;
 
   const worker = await getWorker(lang, onProgress);
 
@@ -58,10 +58,6 @@ export async function runOCR(canvas, pageWidth, pageHeight, options = {}) {
   }
 
   // OCR bbox is in canvas pixel coordinates (backing store size).
-  // Use canvas.width/height to convert bbox → ratio, then normalize.
-  // But for normalized coords (0–1 matching the editor overlay),
-  // we must account for HiDPI scaling: the canvas backing store
-  // is larger than the CSS layout by devicePixelRatio.
   const canvasWidth = canvas.width;
   const canvasHeight = canvas.height;
 
@@ -74,24 +70,31 @@ export async function runOCR(canvas, pageWidth, pageHeight, options = {}) {
 
       // OCR bbox is in canvas pixel coordinates (backing store)
       // Convert to normalized (0–1) coordinates using canvas dimensions
-      // This correctly maps to 0–1 regardless of pixel ratio
       const x = bbox.x0 / canvasWidth;
       const y = bbox.y0 / canvasHeight;
       const width = (bbox.x1 - bbox.x0) / canvasWidth;
       const height = (bbox.y1 - bbox.y0) / canvasHeight;
 
-      // Convert to PDF points for export
-      const pdfX = x * pageWidth;
-      const pdfWidth = width * pageWidth;
-      const lineHeight = height * pageHeight;
+      // Map to unrotated physical PDF coordinates
+      const mapped = mapVisualToPhysical(
+        x,
+        y,
+        width,
+        height,
+        unrotatedWidth,
+        unrotatedHeight,
+        totalRotation
+      );
 
-      // Estimate font size from line height (roughly 80% of line height)
-      const fontSize = lineHeight * 0.8;
+      const pdfX = mapped.x;
+      const pdfWidth = mapped.width;
+      const pdfHeight = mapped.height;
 
-      // PDF Y coordinate (bottom-up, baseline position)
-      // Baseline is approximately at the bottom of the text minus descent
-      const pdfTop = pageHeight - (y * pageHeight);
-      const pdfBaseline = pdfTop - fontSize * 0.8; // approximate baseline
+      // Estimate font size from physical line height (roughly 80% of line height)
+      const fontSize = pdfHeight * 0.8;
+
+      // Calculate baseline based on the mapped bottom coordinate
+      const pdfBaseline = mapped.y + pdfHeight * 0.16;
 
       return {
         id: crypto.randomUUID(),
@@ -115,7 +118,7 @@ export async function runOCR(canvas, pageWidth, pageHeight, options = {}) {
         pdfX,
         pdfY: pdfBaseline,
         pdfWidth,
-        pdfHeight: lineHeight,
+        pdfHeight,
 
         // Mark as OCR-sourced
         isOCR: true,

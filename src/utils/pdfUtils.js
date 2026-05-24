@@ -17,6 +17,44 @@ function hexToRgb(hex = '#000000') {
   );
 }
 
+export function mapVisualToPhysical(x, y, w, h, W, H, rotation) {
+  let xPhys, yPhys, wPhys, hPhys, rotateDegrees;
+
+  if (rotation === 0) {
+    rotateDegrees = 0;
+    wPhys = w * W;
+    hPhys = h * H;
+    xPhys = x * W;
+    yPhys = (1 - y - h) * H;
+  } else if (rotation === 90) {
+    rotateDegrees = 90;
+    wPhys = w * H;
+    hPhys = h * W;
+    xPhys = (y + h) * W;
+    yPhys = x * H;
+  } else if (rotation === 180) {
+    rotateDegrees = 180;
+    wPhys = w * W;
+    hPhys = h * H;
+    xPhys = (1 - x) * W;
+    yPhys = (y + h) * H;
+  } else if (rotation === 270) {
+    rotateDegrees = 270;
+    wPhys = w * H;
+    hPhys = h * W;
+    xPhys = (1 - y - h) * W;
+    yPhys = (1 - x) * H;
+  }
+
+  return {
+    x: xPhys,
+    y: yPhys,
+    width: wPhys,
+    height: hPhys,
+    rotate: rotateDegrees,
+  };
+}
+
 export async function buildPdf(
   pdfSources,
   pages,
@@ -74,12 +112,7 @@ export async function buildPdf(
       copiedPage.setRotation(degrees(currentRotation + page.rotation));
     }
 
-    // BUG-2 fix: When the page is rotated 90° or 270°, the editor shows
-    // a rotated viewport but copiedPage.getSize() returns unrotated dimensions.
-    // We must swap width/height for annotation coordinate mapping.
-    const isSwapped = page.rotation === 90 || page.rotation === 270;
-    const width = isSwapped ? rawSize.height : rawSize.width;
-    const height = isSwapped ? rawSize.width : rawSize.height;
+    const finalRotation = copiedPage.getRotation().angle % 360;
 
     const modifiedTexts = (extractedTextsByPage[page.id] || [])
       .filter((item) => item.isModified);
@@ -88,11 +121,9 @@ export async function buildPdf(
       const activeFont = await getEditFont();
 
       for (const textItem of modifiedTexts) {
+        // Step 1: Draw white rectangle over the original text box
         const originalBoxBottom = textItem.pdfY + textItem.fontSize * (textItem.descent ?? -0.2);
         const originalBoxHeight = textItem.pdfHeight;
-        const nextX = textItem.x * width;
-        const nextY = height - textItem.y * height - textItem.fontSize;
-        const nextWidth = Math.max(1, textItem.width * width);
 
         copiedPage.drawRectangle({
           x: textItem.pdfX - 1,
@@ -103,14 +134,26 @@ export async function buildPdf(
           borderWidth: 0,
         });
 
+        // Step 2: Draw new text at the visual edited position
+        const mapped = mapVisualToPhysical(
+          textItem.x,
+          textItem.y,
+          textItem.width,
+          textItem.height,
+          rawSize.width,
+          rawSize.height,
+          finalRotation
+        );
+
         copiedPage.drawText(textItem.currentText || '', {
-          x: nextX,
-          y: nextY,
+          x: mapped.x,
+          y: mapped.y,
           size: textItem.fontSize,
           font: activeFont,
           color: rgb(0, 0, 0),
-          maxWidth: nextWidth,
+          maxWidth: mapped.width,
           lineHeight: textItem.fontSize * 1.15,
+          rotate: degrees(mapped.rotate),
         });
       }
     }
@@ -119,42 +162,48 @@ export async function buildPdf(
 
     for (const annotation of pageAnnotations) {
       if (annotation.type === 'whiteout') {
+        const mapped = mapVisualToPhysical(
+          annotation.x,
+          annotation.y,
+          annotation.width,
+          annotation.height,
+          rawSize.width,
+          rawSize.height,
+          finalRotation
+        );
+
         copiedPage.drawRectangle({
-          x: annotation.x * width,
-          y: height - (annotation.y + annotation.height) * height,
-          width: annotation.width * width,
-          height: annotation.height * height,
+          x: mapped.x,
+          y: mapped.y,
+          width: mapped.width,
+          height: mapped.height,
           color: hexToRgb(annotation.color || '#ffffff'),
           borderWidth: 0,
+          rotate: degrees(mapped.rotate),
         });
       }
 
       if (annotation.type === 'text') {
         const activeFont = await getEditFont();
+        const mapped = mapVisualToPhysical(
+          annotation.x,
+          annotation.y,
+          annotation.width,
+          annotation.height,
+          rawSize.width,
+          rawSize.height,
+          finalRotation
+        );
 
         copiedPage.drawText(annotation.text || '', {
-          x: annotation.x * width,
-          y: height - annotation.y * height - (annotation.fontSize || 18),
+          x: mapped.x,
+          y: mapped.y,
           size: annotation.fontSize || 18,
           font: activeFont,
           color: hexToRgb(annotation.color || '#111827'),
-          maxWidth: annotation.width * width,
+          maxWidth: mapped.width,
           lineHeight: (annotation.fontSize || 18) * 1.15,
-        });
-      }
-
-      if (annotation.type === 'line') {
-        copiedPage.drawLine({
-          start: {
-            x: annotation.x * width,
-            y: height - annotation.y * height,
-          },
-          end: {
-            x: annotation.x2 * width,
-            y: height - annotation.y2 * height,
-          },
-          thickness: annotation.thickness || 3,
-          color: hexToRgb(annotation.color || '#ef4444'),
+          rotate: degrees(mapped.rotate),
         });
       }
     }

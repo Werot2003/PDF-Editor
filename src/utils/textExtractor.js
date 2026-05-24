@@ -17,11 +17,9 @@ function clamp01(value) {
  * @param {Object} pageProxy - pdfjs-dist PDFPageProxy
  * @returns {Promise<Array>} Array of ExtractedTextItem objects
  */
-export async function extractTextFromPage(pageProxy) {
-  // Get unrotated page dimensions (scale=1 gives us raw PDF points)
-  const viewport = pageProxy.getViewport({ scale: 1, rotation: 0 });
-  const pageWidth = viewport.width;
-  const pageHeight = viewport.height;
+export async function extractTextFromPage(pageProxy, rotation = 0) {
+  // Get viewport with target scale=1 and total page rotation
+  const viewport = pageProxy.getViewport({ scale: 1, rotation });
 
   const textContent = await pageProxy.getTextContent();
 
@@ -93,11 +91,15 @@ export async function extractTextFromPage(pageProxy) {
     const pdfBottom = pdfBaseline + fontSize * first.descent;
     const pdfHeight = pdfTop - pdfBottom;
 
-    // Normalized coordinates (top-left origin, 0–1)
-    const x = clamp01(pdfX / pageWidth);
-    const y = clamp01(1 - pdfTop / pageHeight);
-    const width = clamp01(pdfWidth / pageWidth);
-    const height = clamp01(pdfHeight / pageHeight);
+    // Convert to viewport coordinates (which respects rotation and scale=1)
+    const [x1, y1] = viewport.convertToViewportPoint(pdfX, pdfBottom);
+    const [x2, y2] = viewport.convertToViewportPoint(pdfX + pdfWidth, pdfTop);
+
+    // Compute normalized coordinates (0-1) relative to rotated viewport size
+    const x = clamp01(Math.min(x1, x2) / viewport.width);
+    const y = clamp01(Math.min(y1, y2) / viewport.height);
+    const width = clamp01(Math.abs(x2 - x1) / viewport.width);
+    const height = clamp01(Math.abs(y2 - y1) / viewport.height);
 
     return {
       id: crypto.randomUUID(),
