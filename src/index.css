@@ -1,0 +1,294 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+/* ===== Custom Theme ===== */
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  
+  --color-dark-900: #0a0a0f;
+  --color-dark-800: #12121a;
+  --color-dark-700: #1a1a2e;
+  --color-dark-600: #22223a;
+  --color-dark-500: #2a2a42;
+  --color-dark-400: #3a3a55;
+  --color-dark-300: #5a5a78;
+  --color-dark-200: #8a8aa5;
+  --color-dark-100: #b5b5cc;
+
+  --color-accent-500: #7c3aed;
+  --color-accent-400: #8b5cf6;
+  --color-accent-300: #a78bfa;
+  --color-accent-200: #c4b5fd;
+  --color-accent-glow: rgba(139, 92, 246, 0.3);
+
+  --color-success-500: #10b981;
+  --color-danger-500: #ef4444;
+  --color-danger-400: #f87171;
+  --color-warning-500: #f59e0b;
+
+  --color-glass-bg: rgba(26, 26, 46, 0.6);
+  --color-glass-border: rgba(139, 92, 246, 0.15);
+  --color-glass-hover: rgba(139, 92, 246, 0.25);
+}
+
+/* ===== Base Styles ===== */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-sans);
+  background: var(--color-dark-900);
+  color: var(--color-dark-100);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-dark-800);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-dark-500);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent-500);
+}
+
+/* ===== Animations ===== */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(139, 92, 246, 0.3);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s ease-out forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* ===== Glass Card ===== */
+.glass-card {
+  background: var(--color-glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--color-glass-border);
+  border-radius: 16px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  border-color: var(--color-glass-hover);
+  box-shadow: 0 8px 32px rgba(139, 92, 246, 0.1);
+}
+
+/* ===== Button Styles ===== */
+.btn-primary {
+  background: linear-gradient(135deg, var(--color-accent-500), var(--color-accent-400));
+  color: white;
+  border: none;
+  padding: 12px 28px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(124, 58, 237, 0.4);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  background: var(--color-dark-600);
+  color: var(--color-dark-100);
+  border: 1px solid var(--color-dark-500);
+  padding: 10px 22px;
+  border-radius: 12px;
+  font-weight: 500;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-secondary:hover {
+  background: var(--color-dark-500);
+  border-color: var(--color-accent-500);
+  color: white;
+}
+
+.btn-danger {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--color-danger-400);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: var(--color-danger-500);
+}
+
+.btn-icon {
+  background: var(--color-dark-600);
+  color: var(--color-dark-200);
+  border: 1px solid var(--color-dark-500);
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 1rem;
+}
+
+.btn-icon:hover {
+  background: var(--color-accent-500);
+  border-color: var(--color-accent-400);
+  color: white;
+  transform: scale(1.1);
+}
+
+/* ===== Text Overlay (Phase 2 - Inline Text Editing) ===== */
+.text-overlay-layer {
+  user-select: none;
+}
+
+.text-overlay-item {
+  color: transparent;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, outline-color 0.15s ease;
+  padding: 1px 2px;
+}
+
+/* When any text tool is active: show hover effect */
+.text-overlay-interactive {
+  color: rgba(0, 0, 0, 0.25);
+}
+
+.text-overlay-interactive:hover {
+  background: rgba(139, 92, 246, 0.08);
+  border-color: rgba(139, 92, 246, 0.25);
+  color: rgba(0, 0, 0, 0.4);
+}
+
+/* Selected state — purple outline */
+.text-overlay-selected {
+  color: rgba(0, 0, 0, 0.5);
+  background: rgba(139, 92, 246, 0.06);
+}
+
+/* Active editing state */
+.text-overlay-editing {
+  color: #000 !important;
+  background: rgba(255, 255, 200, 0.45) !important;
+  border-color: var(--color-accent-400) !important;
+  border-style: solid !important;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3);
+  z-index: 20;
+  cursor: text !important;
+  user-select: text;
+}
+
+/* Modified text indicator — show edited text visibly over original */
+.text-overlay-modified:not(.text-overlay-editing) {
+  color: #000 !important;
+  background: rgba(255, 255, 255, 0.97) !important;
+  border: 1px dashed #3b82f6;
+}
+
+/* ===== Sticky Bottom Toolbar ===== */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sticky-text-toolbar {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  padding: 12px 20px;
+  background: rgba(18, 18, 26, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-top: 1px solid rgba(139, 92, 246, 0.2);
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.4), 0 -2px 8px rgba(139, 92, 246, 0.08);
+  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
